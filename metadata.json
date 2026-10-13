@@ -1,0 +1,6 @@
+{
+  "name": "ShopTrack",
+  "description": "Smart shop inventory tracking, stock management, barcode generation, barcode scanning, and customer order management.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

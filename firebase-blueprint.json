@@ -1,0 +1,138 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile with role-based access level for online shop access",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Auth UID" },
+        "email": { "type": "string", "description": "User email address" },
+        "displayName": { "type": "string", "description": "Staff or Admin display name" },
+        "role": { "type": "string", "enum": ["ADMIN", "STAFF"], "description": "User access role" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp via serverTimestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Update timestamp via serverTimestamp" }
+      },
+      "required": ["userId", "email", "displayName", "role", "createdAt", "updatedAt"]
+    },
+    "AdminRecord": {
+      "title": "AdminRecord",
+      "description": "Fast exists() lookup record for verified admin permissions",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Admin UID" },
+        "email": { "type": "string", "description": "Admin email" },
+        "assignedBy": { "type": "string", "description": "Assigner UID or bootstrap" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" }
+      },
+      "required": ["userId", "email", "createdAt"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Retail product inventory item",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Product title" },
+        "sku": { "type": "string", "description": "Barcode or SKU identifier" },
+        "category": { "type": "string", "description": "Department or category" },
+        "costPrice": { "type": "number", "description": "Purchase / wholesale cost" },
+        "sellingPrice": { "type": "number", "description": "Customer retail price" },
+        "currentStock": { "type": "integer", "description": "Available stock count" },
+        "minStockAlert": { "type": "integer", "description": "Low stock threshold alert level" },
+        "unit": { "type": "string", "description": "Measurement unit (pcs, kg, box)" },
+        "shelfLocation": { "type": "string", "description": "Shelf or aisle location" },
+        "supplierName": { "type": "string", "description": "Supplier or distributor name" },
+        "notes": { "type": "string", "description": "Item notes" },
+        "updatedBy": { "type": "string", "description": "UID of last editor" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Update timestamp" }
+      },
+      "required": ["name", "sku", "category", "costPrice", "sellingPrice", "currentStock", "minStockAlert", "unit", "createdAt", "updatedAt"]
+    },
+    "StockMovement": {
+      "title": "StockMovement",
+      "description": "Audit trail log of all inventory changes",
+      "type": "object",
+      "properties": {
+        "productId": { "type": "string", "description": "Target product ID" },
+        "productName": { "type": "string", "description": "Target product title" },
+        "productSku": { "type": "string", "description": "Target barcode" },
+        "quantityChange": { "type": "integer", "description": "Units added (+) or deducted (-)" },
+        "previousStock": { "type": "integer", "description": "Stock before change" },
+        "newStock": { "type": "integer", "description": "Stock after change" },
+        "type": { "type": "string", "description": "Movement classification" },
+        "reason": { "type": "string", "description": "Audit reason or explanation" },
+        "referenceId": { "type": "string", "description": "Order number or supplier invoice" },
+        "performedBy": { "type": "string", "description": "UID of user who performed change" },
+        "performedByName": { "type": "string", "description": "Name of user" },
+        "timestamp": { "type": "string", "format": "date-time", "description": "Log timestamp" }
+      },
+      "required": ["productId", "productName", "productSku", "quantityChange", "previousStock", "newStock", "type", "performedBy", "timestamp"]
+    },
+    "Customer": {
+      "title": "Customer",
+      "description": "Customer contact and order history profile",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Customer name" },
+        "phone": { "type": "string", "description": "Phone number" },
+        "email": { "type": "string", "description": "Email address" },
+        "address": { "type": "string", "description": "Physical address" },
+        "totalOrdersCount": { "type": "integer", "description": "Lifetime order count" },
+        "totalSpent": { "type": "number", "description": "Total sales amount spent" },
+        "outstandingDue": { "type": "number", "description": "Outstanding unpaid credit due" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Registration timestamp" }
+      },
+      "required": ["name", "totalOrdersCount", "totalSpent", "outstandingDue", "createdAt"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Retail customer transaction and invoice",
+      "type": "object",
+      "properties": {
+        "orderNumber": { "type": "string", "description": "Human readable receipt number" },
+        "customerId": { "type": "string", "description": "Customer ID or empty for walk-in" },
+        "customerName": { "type": "string", "description": "Customer name" },
+        "customerPhone": { "type": "string", "description": "Customer phone" },
+        "subtotal": { "type": "number", "description": "Order subtotal before discount" },
+        "discount": { "type": "number", "description": "Discount applied" },
+        "tax": { "type": "number", "description": "Sales tax" },
+        "totalAmount": { "type": "number", "description": "Net total payable" },
+        "paymentMethod": { "type": "string", "description": "Payment instrument" },
+        "paymentStatus": { "type": "string", "description": "PAID or DUE" },
+        "orderStatus": { "type": "string", "description": "Order status" },
+        "cashierId": { "type": "string", "description": "UID of cashier who processed sale" },
+        "cashierName": { "type": "string", "description": "Cashier staff name" },
+        "notes": { "type": "string", "description": "Order memo" },
+        "items": { "type": "array", "description": "Line items breakdown" },
+        "timestamp": { "type": "string", "format": "date-time", "description": "Transaction timestamp" }
+      },
+      "required": ["orderNumber", "customerName", "subtotal", "totalAmount", "paymentMethod", "paymentStatus", "cashierId", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profiles with Admin and Staff role assignments"
+    },
+    "/admins/{userId}": {
+      "schema": "AdminRecord",
+      "description": "Fast authorization table for validated shop administrators"
+    },
+    "/products/{productId}": {
+      "schema": "Product",
+      "description": "Shop inventory products catalog"
+    },
+    "/stock_movements/{movementId}": {
+      "schema": "StockMovement",
+      "description": "Realtime stock audit trail log"
+    },
+    "/customers/{customerId}": {
+      "schema": "Customer",
+      "description": "Shop customers directory"
+    },
+    "/orders/{orderId}": {
+      "schema": "Order",
+      "description": "Shop transactions and customer orders"
+    }
+  }
+}

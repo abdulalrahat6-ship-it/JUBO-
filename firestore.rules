@@ -1,0 +1,183 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isBootstrappedAdmin() {
+      return isSignedIn() &&
+             request.auth.token.email == 'abdulalrahat6@gmail.com' &&
+             request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        isBootstrappedAdmin()
+      );
+    }
+
+    // Validation schemas
+    function isValidUserProfile(data) {
+      return data.userId is string && data.userId.size() <= 128 &&
+             data.email is string && data.email.size() <= 128 &&
+             data.displayName is string && data.displayName.size() <= 128 &&
+             data.role in ['ADMIN', 'STAFF'] &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidProduct(data) {
+      return data.name is string && data.name.size() > 0 && data.name.size() <= 200 &&
+             data.sku is string && data.sku.size() > 0 && data.sku.size() <= 100 &&
+             data.category is string && data.category.size() <= 100 &&
+             (data.costPrice is number || data.costPrice is int) &&
+             (data.sellingPrice is number || data.sellingPrice is int) &&
+             (data.currentStock is int || data.currentStock is number) &&
+             (data.minStockAlert is int || data.minStockAlert is number) &&
+             data.unit is string && data.unit.size() <= 30 &&
+             (!('shelfLocation' in data) || (data.shelfLocation is string && data.shelfLocation.size() <= 100)) &&
+             (!('supplierName' in data) || (data.supplierName is string && data.supplierName.size() <= 150)) &&
+             (!('notes' in data) || (data.notes is string && data.notes.size() <= 1000)) &&
+             (!('updatedBy' in data) || (data.updatedBy is string && data.updatedBy.size() <= 128)) &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidStockMovement(data) {
+      return data.productId is string && data.productId.size() <= 128 &&
+             data.productName is string && data.productName.size() <= 200 &&
+             data.productSku is string && data.productSku.size() <= 100 &&
+             (data.quantityChange is int || data.quantityChange is number) &&
+             (data.previousStock is int || data.previousStock is number) &&
+             (data.newStock is int || data.newStock is number) &&
+             data.type is string && data.type.size() <= 50 &&
+             (!('reason' in data) || (data.reason is string && data.reason.size() <= 500)) &&
+             (!('referenceId' in data) || (data.referenceId is string && data.referenceId.size() <= 100)) &&
+             data.performedBy is string && data.performedBy == request.auth.uid &&
+             (!('performedByName' in data) || (data.performedByName is string && data.performedByName.size() <= 100)) &&
+             data.timestamp is timestamp && data.timestamp <= request.time;
+    }
+
+    function isValidCustomer(data) {
+      return data.name is string && data.name.size() > 0 && data.name.size() <= 150 &&
+             (!('phone' in data) || (data.phone is string && data.phone.size() <= 50)) &&
+             (!('email' in data) || (data.email is string && data.email.size() <= 128)) &&
+             (!('address' in data) || (data.address is string && data.address.size() <= 300)) &&
+             (data.totalOrdersCount is int || data.totalOrdersCount is number) &&
+             (data.totalSpent is number || data.totalSpent is int) &&
+             (data.outstandingDue is number || data.outstandingDue is int) &&
+             data.createdAt is timestamp && data.createdAt <= request.time;
+    }
+
+    function isValidOrder(data) {
+      return data.orderNumber is string && data.orderNumber.size() <= 64 &&
+             (!('customerId' in data) || (data.customerId is string && data.customerId.size() <= 128)) &&
+             data.customerName is string && data.customerName.size() <= 150 &&
+             (!('customerPhone' in data) || (data.customerPhone is string && data.customerPhone.size() <= 50)) &&
+             (data.subtotal is number || data.subtotal is int) &&
+             (!('discount' in data) || (data.discount is number || data.discount is int)) &&
+             (!('tax' in data) || (data.tax is number || data.tax is int)) &&
+             (data.totalAmount is number || data.totalAmount is int) &&
+             data.paymentMethod is string && data.paymentMethod.size() <= 50 &&
+             data.paymentStatus in ['PAID', 'DUE', 'PARTIALLY_PAID'] &&
+             (!('orderStatus' in data) || data.orderStatus in ['COMPLETED', 'PENDING', 'CANCELLED']) &&
+             data.cashierId is string && data.cashierId == request.auth.uid &&
+             (!('cashierName' in data) || (data.cashierName is string && data.cashierName.size() <= 100)) &&
+             (!('notes' in data) || (data.notes is string && data.notes.size() <= 500)) &&
+             (!('items' in data) || (data.items is list && data.items.size() <= 200)) &&
+             data.timestamp is timestamp && data.timestamp <= request.time;
+    }
+
+    // 1. User Profiles Collection
+    match /users/{userId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+
+      allow create: if isOwner(userId) &&
+                       isValidUserProfile(incoming()) &&
+                       (incoming().role == 'STAFF' || isAdmin());
+
+      allow update: if isSignedIn() && (
+        // Admin can update anything including role
+        (isAdmin() && isValidUserProfile(incoming())) ||
+        // User can update only their own profile details (excluding role)
+        (isOwner(userId) && isValidUserProfile(incoming()) && incoming().role == existing().role)
+      );
+
+      allow delete: if isAdmin();
+    }
+
+    // 2. Admins Collection
+    match /admins/{userId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isAdmin() || (isOwner(userId) && isBootstrappedAdmin());
+    }
+
+    // 3. Products Collection
+    match /products/{productId} {
+      allow get, list: if isSignedIn();
+
+      allow create: if isSignedIn() &&
+                       isValidProduct(incoming()) &&
+                       (isAdmin() || incoming().currentStock >= 0);
+
+      allow update: if isSignedIn() &&
+                       isValidProduct(incoming()) &&
+                       incoming().createdAt == existing().createdAt && (
+                         isAdmin() ||
+                         // Staff can perform stock changes during sales and restocks
+                         incoming().diff(existing()).affectedKeys().hasOnly(['currentStock', 'updatedAt', 'updatedBy'])
+                       );
+
+      allow delete: if isAdmin();
+    }
+
+    // 4. Stock Movements (Immutable Audit Trail)
+    match /stock_movements/{movementId} {
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn() && isValidStockMovement(incoming());
+      allow update, delete: if false; // Append-only audit trail
+    }
+
+    // 5. Customers Collection
+    match /customers/{customerId} {
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn() && isValidCustomer(incoming());
+      allow update: if isSignedIn() && isValidCustomer(incoming()) && incoming().createdAt == existing().createdAt;
+      allow delete: if isAdmin();
+    }
+
+    // 6. Orders Collection
+    match /orders/{orderId} {
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn() && isValidOrder(incoming());
+      allow update: if isAdmin() && isValidOrder(incoming()) && incoming().createdAt == existing().createdAt;
+      allow delete: if isAdmin();
+    }
+  }
+}
